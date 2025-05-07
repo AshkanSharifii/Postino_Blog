@@ -1,7 +1,7 @@
 # src/app/utils/file.py
 """
-Save an image (FastAPI/Starlette UploadFile _or_ raw bytes) to MinIO
-and return the object URL.
+Save images (FastAPI/Starlette UploadFile _or_ raw bytes) to MinIO
+and return the object URLs.
 """
 
 from __future__ import annotations
@@ -9,7 +9,7 @@ from __future__ import annotations
 import os
 import uuid
 from io import BytesIO
-from typing import Optional, Union
+from typing import Optional, Union, List
 
 from fastapi import UploadFile, HTTPException
 from starlette.datastructures import UploadFile as StarletteUploadFile
@@ -31,13 +31,13 @@ _minio = MinioClient(
 
 
 def save_image(
-    image: Union[UploadFile, StarletteUploadFile, bytes, None]
+        image: Union[UploadFile, StarletteUploadFile, bytes, None]
 ) -> Optional[str]:
     """
     Accept either:
     • FastAPI / Starlette UploadFile
     • raw `bytes`
-    • `None`  → returns None
+    • `None`  → returns None
 
     Uploads the file to MinIO and returns the public URL.
     """
@@ -83,3 +83,30 @@ def save_image(
         raise HTTPException(500, f"Image upload failed: {err}")
 
     return f"http://{settings.minio_endpoint}/{settings.minio_bucket}/{object_name}"
+
+
+def save_multiple_images(
+        images: List[Union[UploadFile, StarletteUploadFile, bytes, None]]
+) -> List[str]:
+    """
+    Save multiple images and return a list of their URLs.
+    Skips any None values.
+    """
+    if not images:
+        return []
+
+    # Filter out None values
+    valid_images = [img for img in images if img is not None]
+
+    # Handle case of all None values
+    if not valid_images:
+        return []
+
+    # Save each valid image and collect URLs
+    image_urls = []
+    for image in valid_images:
+        url = save_image(image)
+        if url:
+            image_urls.append(url)
+
+    return image_urls
